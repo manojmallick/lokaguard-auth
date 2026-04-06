@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Typecheck · Test · Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test
+        env:
+          # Demo mode — no real Auth0/OpenFGA credentials needed in CI
+          DEMO_MODE: 'true'
+          NODE_ENV: 'test'
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          echo "Checking compiled output..."
+          ls dist/
+          node -e "require('./dist/config.js')" && echo "config.js OK"
+
+  security:
+    name: Security audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+        continue-on-error: true   # informational — don't fail build on upstream vulns
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Fail if any real-looking tokens are committed
+          if grep -r "ghp_\|sk-\|xoxb-\|Bearer [a-zA-Z0-9+/]{20}" src/ --include="*.ts"; then
+            echo "❌ Possible hardcoded secret found in source"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets detected"

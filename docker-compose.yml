@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  # ── Main application ──────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DEMO_MODE=true
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DNB_API_BASE_URL=http://dnb-mock:8080/v1
+      - DATABASE_PATH=/data/lokaguard.db
+      - OPENFGA_API_URL=http://openfga:8080
+    env_file:
+      - .env
+    volumes:
+      - db-data:/data
+    depends_on:
+      - ollama
+      - dnb-mock
+      - openfga
+
+  # ── Ollama (local LLM) ────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    # Pull qwen2.5:7b automatically on first run
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5:7b && wait"]
+
+  # ── Mock DNB Reporting API ────────────────────────────────
+  dnb-mock:
+    image: node:20-alpine
+    working_dir: /app
+    command: node /app/server.js
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./scripts/dnb-mock:/app
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── OpenFGA (local authorization) ────────────────────────
+  openfga:
+    image: openfga/openfga:latest
+    command: run
+    ports:
+      - "8081:8080"   # HTTP API
+      - "8082:8081"   # gRPC API
+      # Port 3000 is reserved for the app service — no conflict
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=memory
+
+volumes:
+  db-data:
+  ollama-data:

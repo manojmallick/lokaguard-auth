@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LokaGuard Auth — DORA Compliance Dashboard</title>
+  <meta name="description" content="Real-time DORA Article 19 ICT incident reporting pipeline status dashboard. Powered by Auth0 Token Vault, CIBA, and OpenFGA." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #070b14;
+      --surface:     #0d1424;
+      --surface-2:   #111c30;
+      --border:      rgba(99,179,237,0.12);
+      --accent:      #4f8ef7;
+      --accent-glow: rgba(79,142,247,0.25);
+      --success:     #10b981;
+      --warning:     #f59e0b;
+      --danger:      #ef4444;
+      --text:        #e2e8f0;
+      --text-muted:  #64748b;
+      --font:        'Inter', system-ui, sans-serif;
+      --mono:        'JetBrains Mono', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #4f8ef7, #7c3aed);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .logo-sub {
+      font-weight: 400;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: block;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .ws-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .ws-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: background 0.3s;
+    }
+
+    .ws-dot.connected { background: var(--success); animation: pulse-dot 2s infinite; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .timer-badge {
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: auto auto auto 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── Trigger panel ── */
+    .trigger-panel {
+      grid-column: 1;
+      grid-row: 3;
+    }
+
+    .pipeline-status {
+      grid-column: 2;
+      grid-row: 3 / 5;
+    }
+
+    .log-panel {
+      grid-column: 1;
+      grid-row: 4;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(79,142,247,0.03) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 0.875rem; }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid rgba(99,179,237,0.2);
+      border-radius: 8px;
+      padding: 0.625rem 0.875rem;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 0.75rem;
+      background: linear-gradient(135deg, #4f8ef7, #7c3aed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .btn-primary:hover { opacity: 0.9; box-shadow: 0 4px 20px rgba(79,142,247,0.35); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-demo {
+      width: 100%;
+      padding: 0.6rem;
+      background: rgba(79,142,247,0.08);
+      color: var(--accent);
+      border: 1px solid rgba(79,142,247,0.25);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 0.5rem;
+    }
+
+    .btn-demo:hover { background: rgba(79,142,247,0.15); border-color: var(--accent); }
+    .btn-demo:active { transform: scale(0.98); }
+
+
+    /* ── Pipeline stages ── */
+    .pipeline-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .pipeline-stages {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .stage-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.875rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+
+    .stage-item.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-glow), 0 4px 16px rgba(0,0,0,0.3);
+      transform: translateX(2px);
+    }
+
+    .stage-item.success { border-color: var(--success); }
+    .stage-item.failed { border-color: var(--danger); }
+    .stage-item.skipped { opacity: 0.4; }
+
+    .stage-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+      background: rgba(99,179,237,0.08);
+    }
+
+    .stage-item.active .stage-icon { background: rgba(79,142,247,0.15); }
+    .stage-item.success .stage-icon { background: rgba(16,185,129,0.15); }
+    .stage-item.failed .stage-icon { background: rgba(239,68,68,0.15); }
+
+    .stage-info { flex: 1; min-width: 0; }
+
+    .stage-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+    }
+
+    .stage-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stage-item.active .stage-status { color: var(--accent); }
+    .stage-item.success .stage-status { color: var(--success); }
+    .stage-item.failed .stage-status { color: var(--danger); }
+
+    .stage-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+      background: rgba(99,179,237,0.1);
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .stage-item.active .stage-badge { background: rgba(79,142,247,0.15); color: var(--accent); }
+    .stage-item.success .stage-badge { background: rgba(16,185,129,0.15); color: var(--success); }
+    .stage-item.failed .stage-badge { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+    /* Auth badge on stage */
+    .auth-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+    }
+
+    .auth-badge span {
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(99,179,237,0.06);
+      border: 1px solid rgba(99,179,237,0.15);
+    }
+
+    /* CISO approval overlay */
+    .ciso-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(7,11,20,0.85);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ciso-overlay.visible { display: flex; }
+
+    .ciso-modal {
+      background: var(--surface);
+      border: 1px solid rgba(79,142,247,0.4);
+      border-radius: 20px;
+      padding: 2.5rem;
+      max-width: 440px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(79,142,247,0.2);
+      animation: modal-in 0.3s ease;
+    }
+
+    @keyframes modal-in {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .phone-mockup {
+      width: 120px;
+      height: 200px;
+      background: #1a1a2e;
+      border: 3px solid #334155;
+      border-radius: 24px;
+      margin: 1.5rem auto;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .phone-mockup::before {
+      content: '';
+      position: absolute;
+      top: 12px;
+      width: 40px;
+      height: 4px;
+      background: #334155;
+      border-radius: 2px;
+    }
+
+    .phone-notification {
+      background: #0d1424;
+      border-radius: 12px;
+      padding: 0.75rem;
+      margin: 0 0.5rem;
+      text-align: left;
+      border: 1px solid rgba(79,142,247,0.3);
+      animation: notif-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes notif-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(79,142,247,0.2); }
+      50% { box-shadow: 0 0 16px rgba(79,142,247,0.5); }
+    }
+
+    .phone-notif-app {
+      font-size: 0.6rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    .phone-notif-text {
+      font-size: 0.6rem;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .approve-btn {
+      background: linear-gradient(135deg, var(--success), #059669);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0.875rem 2rem;
+      font-family: var(--font);
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 0.5rem;
+      width: 100%;
+    }
+
+    .approve-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,185,129,0.4); }
+
+    /* ── Report output ── */
+    .report-output {
+      display: none;
+      margin-top: 1rem;
+    }
+
+    .report-output.visible { display: block; }
+
+    .report-json {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: #a5f3fc;
+      overflow-x: auto;
+      max-height: 280px;
+      line-height: 1.6;
+    }
+
+    /* ── Log panel ── */
+    .log-scroll {
+      height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(99,179,237,0.2) transparent;
+    }
+
+    .log-entry {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      line-height: 1.5;
+      padding: 0.25rem 0;
+      border-bottom: 1px solid rgba(99,179,237,0.04);
+    }
+
+    .log-time { color: var(--text-muted); flex-shrink: 0; }
+    .log-agent { flex-shrink: 0; }
+    .log-agent.RegDataAgent   { color: #38bdf8; }
+    .log-agent.ClassifyAgent  { color: #a78bfa; }
+    .log-agent.DraftAgent     { color: #fb923c; }
+    .log-agent.SubmissionAgent { color: #f472b6; }
+    .log-agent.AuditAgent     { color: #34d399; }
+    .log-agent.system         { color: var(--text-muted); }
+    .log-msg { color: var(--text); }
+    .log-msg.success { color: var(--success); }
+    .log-msg.error { color: var(--danger); }
+    .log-msg.warn { color: var(--warning); }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-item {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 0.35rem;
+    }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── DNB submit success banner ── */
+    .success-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.05));
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .success-banner.visible { display: flex; }
+
+    .success-banner .icon { font-size: 2rem; }
+
+    .success-banner h3 { font-size: 0.9rem; font-weight: 700; color: var(--success); }
+    .success-banner p { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    /* ── ROI / Impact panel ── */
+    .impact-bar {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 0;
+    }
+
+    .impact-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .impact-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(79,142,247,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .impact-card.green::before { background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, transparent 60%); }
+    .impact-card.yellow::before { background: linear-gradient(135deg, rgba(245,158,11,0.06) 0%, transparent 60%); }
+    .impact-card.red::before { background: linear-gradient(135deg, rgba(239,68,68,0.06) 0%, transparent 60%); }
+
+    .impact-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--accent);
+      line-height: 1;
+    }
+    .impact-card.green .impact-value { color: var(--success); }
+    .impact-card.yellow .impact-value { color: var(--warning); }
+    .impact-card.red .impact-value { color: #f87171; }
+
+    .impact-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 0.3rem;
+    }
+
+    .impact-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+      font-style: italic;
+    }
+
+    /* ── Provenance banner ── */
+    .provenance-banner {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(79,142,247,0.08));
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 12px;
+      padding: 0.875rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-size: 0.8rem;
+    }
+
+    .provenance-trophy {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .provenance-text strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .provenance-text span {
+      color: var(--text-muted);
+    }
+
+    .provenance-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(79,142,247,0.3);
+    }
+
+    .provenance-link:hover { border-bottom-color: var(--accent); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .footer-badges {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-auth0   { background: rgba(235,87,87,0.1); color: #f87171; border: 1px solid rgba(235,87,87,0.2); }
+    .badge-fga     { background: rgba(79,142,247,0.1); color: #93c5fd; border: 1px solid rgba(79,142,247,0.2); }
+    .badge-dora    { background: rgba(245,158,11,0.1); color: #fcd34d; border: 1px solid rgba(245,158,11,0.2); }
+    .badge-ts      { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+    .badge-winner  { background: rgba(124,58,237,0.12); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.25); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🛡</div>
+    <div>
+      LokaGuard Auth
+      <span class="logo-sub">DORA Article 19 — Automated Incident Reporting</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="ws-indicator">
+      <div class="ws-dot" id="wsDot"></div>
+      <span id="wsStatus">Connecting…</span>
+    </div>
+    <div class="timer-badge" id="timerBadge">⏱ 04:00:00</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Provenance Banner -->
+  <div class="provenance-banner">
+    <div class="provenance-trophy">🏆</div>
+    <div class="provenance-text">
+      <strong>From the creator of GradientGuard</strong>
+      <span> — 2nd Place, DigitalOcean Gradient AI Hackathon · Same DORA domain, harder problem: secure, auditable, regulator-ready submission with Auth0 · </span>
+      <a class="provenance-link" href="https://devpost.com/software/gradientguard-dora-compliance-intelligence-platform" target="_blank">Devpost</a>
+    </div>
+  </div>
+
+  <!-- ROI Impact Bar -->
+  <div class="impact-bar">
+    <div class="impact-card green">
+      <div class="impact-value">&lt; 3 min</div>
+      <div class="impact-label">Time to DNB submission</div>
+      <div class="impact-sub">vs. 3–8 hours manually</div>
+    </div>
+    <div class="impact-card green">
+      <div class="impact-value">€117,840</div>
+      <div class="impact-label">Annual savings</div>
+      <div class="impact-sub">98% cost reduction per 100-person org</div>
+    </div>
+    <div class="impact-card yellow">
+      <div class="impact-value">6,000+</div>
+      <div class="impact-label">EU firms affected</div>
+      <div class="impact-sub">DORA enforcement: Aug 2026</div>
+    </div>
+    <div class="impact-card red">
+      <div class="impact-value">04:00:00</div>
+      <div class="impact-label">Legal reporting window</div>
+      <div class="impact-sub">Miss it → regulatory sanctions</div>
+    </div>
+  </div>
+
+  <!-- Trigger Panel -->
+  <div class="trigger-panel card">
+    <div class="card-title">🚨 Trigger DORA Pipeline</div>
+
+    <div class="form-group">
+      <label for="jiraKey">Jira Issue Key</label>
+      <input type="text" id="jiraKey" value="INC-1234" placeholder="INC-1234" />
+    </div>
+    <div class="form-group">
+      <label for="userId">User (CISO Sub)</label>
+      <input type="text" id="userId" value="auth0|demo-ciso" placeholder="auth0|..." />
+    </div>
+
+    <button class="btn-primary" id="triggerBtn" onclick="triggerPipeline()">
+      <span id="triggerBtnText">⚡ Initiate DORA Pipeline</span>
+      <div class="spinner" id="triggerSpinner" style="display:none"></div>
+    </button>
+
+    <button class="btn-demo" id="demoBtn" onclick="runFullDemo()" title="Auto-fills form, triggers pipeline, and approves CISO step-up automatically">
+      🎬 Run Full Demo (Auto)
+    </button>
+
+    <div class="success-banner" id="successBanner">
+      <div class="icon">✅</div>
+      <div>
+        <h3>Report submitted to DNB</h3>
+        <p id="dnbRefText">Reference: DNB-LG-2024-001</p>
+        <button onclick="resetPipeline()" style="margin-top:0.5rem;background:rgba(99,179,237,0.1);border:1px solid rgba(99,179,237,0.2);color:#93c5fd;border-radius:6px;padding:0.3rem 0.75rem;font-size:0.75rem;cursor:pointer">↺ Run Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline Status -->
+  <div class="pipeline-status card">
+    <div class="pipeline-header">
+      <div class="card-title" style="margin-bottom:0">⚙️ Agent Pipeline</div>
+      <span style="font-size:0.75rem;color:var(--text-muted)" id="pipelineReportId">—</span>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="stat-value" id="statCompleted">0</div>
+        <div class="stat-label">Agents done</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statTotal">5</div>
+        <div class="stat-label">Total agents</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statElapsed">—</div>
+        <div class="stat-label">Elapsed</div>
+      </div>
+    </div>
+
+    <div class="pipeline-stages" id="pipelineStages">
+
+      <div class="stage-item" id="stage-regDataAgent">
+        <div class="stage-icon">📥</div>
+        <div class="stage-info">
+          <div class="stage-name">RegDataAgent</div>
+          <div class="stage-status">Waiting for incident</div>
+          <div class="auth-badge">
+            <span>Token Vault: Jira</span>
+            <span>GitHub</span>
+            <span>Slack</span>
+          </div>
+        </div>
+        <div class="stage-badge" id="badge-regDataAgent">IDLE</div>
+      </div>
+
+      <div class="stage-item" id="stage-classifyAgent">
+        <div class="stage-icon">🔍</div>
+        <div class="stage-info">
+          <div class="stage-name">ClassifyAgent</div>
+          <div class="stage-status">Depends on RegDataAgent</div>
+          <div class="auth-badge">
+            <span>Qwen 2.5 (local)</span>
+            <span>EBA RTS — 7 criteria</span>
+          </div>
+        </div>
+        <div class="stage-badge" id="badge-classifyAgent">IDLE</div>
+      </div>
+
+      <div class="stage-item" id="stage-draftAgent">
+        <div class="stage-icon">📝</div>
+        <div class="stage-info">
+          <div class="stage-name">DraftAgent</div>
+          <div class="stage-status">Depends on ClassifyAgent</div>
+          <div class="auth-badge">
+            <span>Qwen 2.5 (local)</span>
+            <span>DORA Art. 19</span>
+          </div>
+        </div>
+        <div class="stage-badge" id="badge-draftAgent">IDLE</div>
+      </div>
+
+      <div class="stage-item" id="stage-submissionAgent">
+        <div class="stage-icon">🔐</div>
+        <div class="stage-info">
+          <div class="stage-name">SubmissionAgent</div>
+          <div class="stage-status">Depends on DraftAgent</div>
+          <div class="auth-badge">
+            <span>OpenFGA</span>
+            <span>CIBA step-up</span>
+            <span>Token Vault: DNB</span>
+          </div>
+        </div>
+        <div class="stage-badge" id="badge-submissionAgent">IDLE</div>
+      </div>
+
+      <div class="stage-item" id="stage-auditAgent">
+        <div class="stage-icon">📋</div>
+        <div class="stage-info">
+          <div class="stage-name">AuditAgent</div>
+          <div class="stage-status">Depends on SubmissionAgent</div>
+          <div class="auth-badge">
+            <span>Token Vault: GitHub</span>
+            <span>SQLite</span>
+          </div>
+        </div>
+        <div class="stage-badge" id="badge-auditAgent">IDLE</div>
+      </div>
+
+    </div>
+
+    <div class="report-output" id="reportOutput">
+      <div class="card-title" style="margin-top:1.25rem">📄 DORA Initial Notification (DNB)</div>
+      <pre class="report-json" id="reportJson"></pre>
+    </div>
+  </div>
+
+  <!-- Log Panel -->
+  <div class="log-panel card">
+    <div class="card-title">🖥 Live Agent Log</div>
+    <div class="log-scroll" id="logScroll">
+      <div class="log-entry">
+        <span class="log-time">--:--:--</span>
+        <span class="log-agent system">system</span>
+        <span class="log-msg">Connecting to LokaGuard server…</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- CISO Approval Overlay -->
+<div class="ciso-overlay" id="cisoOverlay">
+  <div class="ciso-modal">
+    <div style="font-size:2.5rem;margin-bottom:0.75rem">📱</div>
+    <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:0.5rem">CISO Step-Up Required</h2>
+    <p style="font-size:0.85rem;color:var(--text-muted);line-height:1.6">
+      Auth0 CIBA has sent a push notification to the CISO's mobile device.<br/>
+      Approve the DORA submission in Auth0 Guardian.
+    </p>
+
+    <div class="phone-mockup">
+      <div class="phone-notification">
+        <div class="phone-notif-app">🛡 Auth0 Guardian</div>
+        <div class="phone-notif-text">LokaGuard: Approve DORA report <span id="phoneReportId">LG-2024-001</span> for DNB submission</div>
+      </div>
+    </div>
+
+    <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem">
+      Polling for approval every 5 seconds (5-minute timeout)
+    </p>
+
+    <div style="margin-top: 1rem; color: #10b981; font-weight: bold; animation: pulse 2s infinite;">
+      ⏳ Please open Auth0 Guardian on your phone...
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div>Manoj Mallick · Amsterdam, NL · DORA enforcement: Aug 2026</div>
+  <div class="footer-badges">
+    <span class="badge badge-winner">🏆 2nd Place DO Gradient AI Hackathon</span>
+    <span class="badge badge-auth0">Auth0 Token Vault</span>
+    <span class="badge badge-auth0">Auth0 CIBA</span>
+    <span class="badge badge-fga">OpenFGA</span>
+    <span class="badge badge-dora">DORA Art. 19</span>
+    <span class="badge badge-ts">TypeScript 5 strict</span>
+  </div>
+</footer>
+
+<script>
+  // ── WebSocket connection ──────────────────────────────────
+  let ws = null;
+  let wsReconnectTimer = null;
+  let pipelineStart = null;
+  let elapsedTimer = null;
+  let completedAgents = 0;
+
+  const STAGES = ['regDataAgent', 'classifyAgent', 'draftAgent', 'submissionAgent', 'auditAgent'];
+
+  const STAGE_LABELS = {
+    'fetching_incident_data': 'Fetching from Jira, GitHub, Slack…',
+    'incident_data_collected': 'Incident data collected ✓',
+    'classifying_incident': 'Running EBA RTS classification…',
+    'classification_complete': (e) => `Classified as ${e.meta?.severity?.toUpperCase() ?? 'MAJOR'} ✓`,
+    'generating_dora_draft': 'Generating DORA Art. 19 notification…',
+    'dora_draft_ready': 'Draft DORA notification ready ✓',
+    'checking_permissions': 'Checking OpenFGA permissions…',
+    'awaiting_ciso_approval': 'CIBA initiated — awaiting CISO approval…',
+    'ciso_approved': 'CISO approved ✓',
+    'submitting_to_dnb': 'Submitting to DNB API…',
+    'submission_complete': (e) => `Submitted ✓ Ref: ${e.meta?.dnbReferenceId ?? ''}`,
+    'writing_audit_trail': 'Writing immutable audit trail…',
+    'audit_complete': 'Audit trail written to GitHub + SQLite ✓',
+    'permission_denied': '❌ Permission denied by OpenFGA',
+    'ciso_denied': '❌ CISO denied the submission',
+    'ciso_timeout': '⏱ CISO timeout — submission aborted',
+  };
+
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}`);
+
+    ws.onopen = () => {
+      setWsStatus(true);
+      addLog('system', 'Connected to LokaGuard server');
+    };
+
+    ws.onclose = () => {
+      setWsStatus(false);
+      addLog('system', 'Disconnected — reconnecting in 3s…', 'warn');
+      wsReconnectTimer = setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = () => {
+      addLog('system', 'WebSocket error', 'error');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWSMessage(msg);
+      } catch {}
+    };
+  }
+
+  function setWsStatus(connected) {
+    const dot = document.getElementById('wsDot');
+    const status = document.getElementById('wsStatus');
+    dot.classList.toggle('connected', connected);
+    status.textContent = connected ? 'Live' : 'Disconnected';
+  }
+
+  function handleWSMessage(msg) {
+    switch (msg.type) {
+      case 'pipeline:start':
+        onPipelineStart(msg);
+        break;
+      case 'agent:start':
+        onAgentStart(msg.nodeId);
+        break;
+      case 'agent:complete':
+        onAgentComplete(msg.nodeId, msg.success);
+        break;
+      case 'agent:error':
+        onAgentError(msg.nodeId, msg.error);
+        break;
+      case 'agent:status':
+        onAgentStatus(msg);
+        break;
+      case 'agent:log':
+        addLog(msg.agent || 'system', msg.message);
+        break;
+      case 'pipeline:complete':
+        onPipelineComplete(msg);
+        break;
+    }
+  }
+
+  function onPipelineStart(msg) {
+    pipelineStart = Date.now();
+    completedAgents = 0;
+    document.getElementById('statCompleted').textContent = '0';
+    document.getElementById('pipelineReportId').textContent = `Report: ${msg.reportId}`;
+    document.getElementById('phoneReportId').textContent = msg.reportId;
+    document.getElementById('successBanner').classList.remove('visible');
+    document.getElementById('reportOutput').classList.remove('visible');
+
+    // Reset all stages
+    STAGES.forEach(id => setStage(id, 'idle', 'Queued…'));
+
+    addLog('system', `Pipeline started — Report: ${msg.reportId}`, 'success');
+
+    // Start elapsed timer
+    clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+      const secs = Math.floor((Date.now() - pipelineStart) / 1000);
+      document.getElementById('statElapsed').textContent =
+        `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    }, 1000);
+  }
+
+  function onAgentStart(nodeId) {
+    setStage(nodeId, 'active', 'Running…');
+    addLog(nodeId, `${nodeId} started`);
+  }
+
+  function onAgentComplete(nodeId, success) {
+    setStage(nodeId, success ? 'success' : 'failed', success ? 'Complete ✓' : 'Failed ✗');
+    completedAgents++;
+    document.getElementById('statCompleted').textContent = completedAgents;
+    addLog(nodeId, `${nodeId} ${success ? 'completed successfully' : 'failed'}`, success ? 'success' : 'error');
+  }
+
+  function onAgentError(nodeId, error) {
+    setStage(nodeId, 'failed', error || 'Error');
+    addLog(nodeId, `${nodeId} error: ${error}`, 'error');
+  }
+
+  function onAgentStatus(msg) {
+    const { stage, agentName, meta } = msg;
+
+    // Update stage status text
+    const el = document.querySelector(`#stage-${agentName} .stage-status`);
+    if (el) {
+      const label = STAGE_LABELS[stage];
+      el.textContent = typeof label === 'function' ? label(msg) : (label ?? stage);
+    }
+
+    // Show CISO overlay on CIBA
+    if (stage === 'awaiting_ciso_approval') {
+      document.getElementById('cisoOverlay').classList.add('visible');
+    }
+    
+    // Hide overlay when approved
+    if (stage === 'ciso_approved' || stage === 'permission_denied' || stage === 'ciso_denied' || stage === 'ciso_timeout') {
+      document.getElementById('cisoOverlay').classList.remove('visible');
+    }
+
+    addLog(agentName || 'system', stage.replace(/_/g, ' '));
+  }
+
+  function onPipelineComplete(msg) {
+    clearInterval(elapsedTimer);
+    const duration = ((Date.now() - pipelineStart) / 1000).toFixed(1);
+    addLog('system', `Pipeline complete in ${duration}s — success: ${msg.success}`, msg.success ? 'success' : 'error');
+
+    if (msg.success) {
+      const submissionData = msg.results?.submissionAgent?.data ?? {};
+      const dnbRef = submissionData.dnbReferenceId ?? 'DNB-SUBMITTED';
+      document.getElementById('dnbRefText').textContent = `Reference: ${dnbRef} · ${duration}s`;
+      document.getElementById('successBanner').classList.add('visible');
+
+      // Show the generated DORA report JSON
+      const report = submissionData.report;
+      if (report) {
+        document.getElementById('reportJson').textContent = JSON.stringify(report, null, 2);
+        document.getElementById('reportOutput').classList.add('visible');
+      }
+
+      setTriggerEnabled(true);
+    }
+  }
+
+  function setStage(id, state, statusText) {
+    const el = document.getElementById(`stage-${id}`);
+    const badge = document.getElementById(`badge-${id}`);
+    const statusEl = el?.querySelector('.stage-status');
+
+    if (!el || !badge) return;
+
+    el.className = `stage-item ${state}`;
+    badge.textContent = state.toUpperCase();
+
+    if (statusText && statusEl) {
+      statusEl.textContent = statusText;
+    }
+  }
+
+  // ── Trigger pipeline ──────────────────────────────────────
+  async function triggerPipeline() {
+    const jiraKey = document.getElementById('jiraKey').value.trim();
+    const userId = document.getElementById('userId').value.trim();
+
+    if (!jiraKey || !userId) {
+      addLog('system', 'Jira key and User sub are required', 'error');
+      return;
+    }
+
+    setTriggerEnabled(false);
+
+    try {
+      const res = await fetch('/api/incidents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer demo-token',
+        },
+        body: JSON.stringify({ jiraIssueKey: jiraKey, userId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        addLog('system', `Error: ${err.error ?? 'Unknown error'}`, 'error');
+        setTriggerEnabled(true);
+        return;
+      }
+
+      const data = await res.json();
+      addLog('system', `Incident created: ${data.incidentId} — Report: ${data.reportId}`, 'success');
+
+    } catch (err) {
+      addLog('system', `Network error: ${err.message}`, 'error');
+      setTriggerEnabled(true);
+    }
+  }
+
+  function setTriggerEnabled(enabled) {
+    const btn = document.getElementById('triggerBtn');
+    const text = document.getElementById('triggerBtnText');
+    const spinner = document.getElementById('triggerSpinner');
+    btn.disabled = !enabled;
+    text.style.display = enabled ? '' : 'none';
+    spinner.style.display = enabled ? 'none' : '';
+  }
+
+  // ── CISO approval simulation ──────────────────────────────
+  // Removed, because in real mode the backend polls Auth0 Guardian physically.
+  function simulateApproval() {
+    // No-op for real deployments. Modal will auto-close when backend returns agent:status 'ciso_approved'
+  }
+
+  // ── Logging ───────────────────────────────────────────────
+  function addLog(agent, message, level) {
+    const scroll = document.getElementById('logScroll');
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <span class="log-time">${time}</span>
+      <span class="log-agent ${agent}">${agent}</span>
+      <span class="log-msg ${level ?? ''}">${escapeHtml(message)}</span>
+    `;
+
+    scroll.appendChild(entry);
+    scroll.scrollTop = scroll.scrollHeight;
+
+    // Keep max 200 log entries
+    while (scroll.children.length > 200) {
+      scroll.removeChild(scroll.firstChild);
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // ── DORA countdown timer ──────────────────────────────────
+  const DORA_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 hours
+  let countdownStart = Date.now();
+
+  function updateCountdown() {
+    const elapsed = Date.now() - countdownStart;
+    const remaining = Math.max(0, DORA_WINDOW_MS - elapsed);
+    const h = Math.floor(remaining / 3_600_000);
+    const m = Math.floor((remaining % 3_600_000) / 60_000);
+    const s = Math.floor((remaining % 60_000) / 1_000);
+    document.getElementById('timerBadge').textContent =
+      `⏱ ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  setInterval(updateCountdown, 1000);
+  updateCountdown();
+
+  // ── ?autorun=1 — auto-trigger for screen sharing / judge demos ───
+  function checkAutorun() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('autorun') === '1') {
+      addLog('system', '?autorun=1 detected — pipeline will start in 3 seconds…', 'warn');
+      setTimeout(() => runFullDemo(), 3000);
+    }
+  }
+
+  // ── Full demo (auto-approve CISO) ─────────────────────────
+  function runFullDemo() {
+    document.getElementById('jiraKey').value = 'INC-2024-DEMO';
+    document.getElementById('userId').value = 'auth0|demo-ciso';
+    triggerPipeline();
+    // Auto-approve CISO modal after 4 seconds
+    setTimeout(() => {
+      const overlay = document.getElementById('cisoOverlay');
+      if (overlay.classList.contains('visible')) {
+        simulateApproval();
+      }
+    }, 4000);
+  }
+
+  // ── Reset pipeline state ──────────────────────────────────
+  function resetPipeline() {
+    document.getElementById('successBanner').classList.remove('visible');
+    document.getElementById('reportOutput').classList.remove('visible');
+    document.getElementById('statCompleted').textContent = '0';
+    document.getElementById('statElapsed').textContent = '—';
+    document.getElementById('pipelineReportId').textContent = '—';
+    STAGES.forEach(id => setStage(id, 'idle', id === 'regDataAgent' ? 'Waiting for incident' : `Depends on previous agent`));
+    setTriggerEnabled(true);
+    addLog('system', 'Pipeline reset — ready for next incident');
+  }
+
+  // ── Boot ──────────────────────────────────────────────────
+  connectWS();
+  checkAutorun();
+</script>
+</body>
+</html>

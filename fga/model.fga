@@ -1,0 +1,29 @@
+model
+  schema 1.1
+
+type user
+
+type team
+  relations
+    define member: [user]
+
+type organization
+  relations
+    define ciso: [user]
+    define cro: [user]
+    define compliance_officer: [user, team#member] or cro
+    define analyst: [user, team#member] or compliance_officer
+
+type regulatory_report
+  relations
+    define owner: [organization]
+    define can_draft: analyst from owner
+    define can_review: compliance_officer from owner
+    define can_approve: ciso from owner or cro from owner
+    define can_submit: can_approve
+
+type audit_log
+  relations
+    define owner: [organization]
+    define can_read: analyst from owner
+    define can_write: [user]
