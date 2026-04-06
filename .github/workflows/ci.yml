@@ -11,6 +11,11 @@ jobs:
     name: Typecheck · Test · Build
     runs-on: ubuntu-latest
 
+    # Demo mode for all steps — no real Auth0/OpenFGA credentials needed in CI
+    env:
+      DEMO_MODE: 'true'
+      NODE_ENV: 'test'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,10 +34,6 @@ jobs:
 
       - name: Run tests
         run: npm test
-        env:
-          # Demo mode — no real Auth0/OpenFGA credentials needed in CI
-          DEMO_MODE: 'true'
-          NODE_ENV: 'test'
 
       - name: Build
         run: npm run build
