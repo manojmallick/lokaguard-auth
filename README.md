@@ -13,6 +13,10 @@
 
 GradientGuard proved the *detection and classification* problem is solvable with AI agents. LokaGuard Auth solves the harder problem: **secure, auditable, regulator-ready submission** — the part where identity, authorization, and human approval must be airtight.
 
+## Live Deployment (Tested on Cloud Run)
+- **Dashboard**: [https://lokaguard-auth-894781387465.europe-west1.run.app/dashboard/](https://lokaguard-auth-894781387465.europe-west1.run.app/dashboard/)
+- **API Health**: [https://lokaguard-auth-894781387465.europe-west1.run.app/health](https://lokaguard-auth-894781387465.europe-west1.run.app/health)
+
 The two projects form a complete DORA pipeline:
 
 ```
@@ -326,11 +330,7 @@ After two hackathons in the same domain and 15 years inside the institutions thi
 
 ---
 
-## Related Work
 
-
-
----
 
 *Manoj Mallick · Amsterdam, NL*
 *"Authorized to Act" Hackathon submission · DORA enforcement: August 2026*
