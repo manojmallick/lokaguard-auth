@@ -33,7 +33,8 @@ serveo_output.txt
 *.tar.gz
 
 # Claude Code
-.claude/settings.local.json
+.claude/
+CLAUDE.MD
 
 # Standalone / deploy artifacts (not needed for open source)
 server-standalone.js
