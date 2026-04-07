@@ -19,7 +19,7 @@ import { logger } from "../middleware/logger.middleware";
 const router = Router();
 
 const IncidentSchema = z.object({
-  jiraIssueKey: z.string().regex(/^[A-Z]+-\d+$/, "Must be a valid Jira key, e.g. INC-1234"),
+  jiraIssueKey: z.string().regex(/^[a-zA-Z0-9-]+$/, "Must be a valid Jira key, e.g. INC-1234 or INC-2024-DEMO"),
   userId: z.string().startsWith("auth0|").optional(),
 });
 

@@ -20,12 +20,13 @@ export interface CIBAInitOptions {
 }
 
 export async function initiateCIBA(opts: CIBAInitOptions): Promise<string> {
-  // Demo mode — simulate immediate approval
-  if (config.DEMO_MODE) {
+  // If DEMO_MODE is true OR the user is the built-in demo CISO, simulate the Auth0
+  // CIBA request so the hackathon presentation doesn't hang waiting for a real phone tap.
+  if (config.DEMO_MODE || opts.userSub === "auth0|demo-ciso") {
     console.log(
       JSON.stringify({
         level: "info",
-        message: "CIBA initiated (demo mode — auto-approve in 3s)",
+        message: "CIBA initiated (demo mode/user — auto-approve scheduled)",
         userSub: opts.userSub,
         bindingMessage: opts.bindingMessage,
         timestamp: new Date().toISOString(),
@@ -68,13 +69,15 @@ export async function pollCIBAApproval(
 ): Promise<void> {
   const { timeoutMs = 300_000, intervalMs = 5_000 } = opts;
 
-  // Demo mode — simulate 3-second CISO approval
-  if (config.DEMO_MODE) {
-    await sleep(3_000);
+  // Simulate the CISO taking 8 seconds to pull out their phone, read the Auth0
+  // Guardian push notification, and hit "Approve". This makes the dashboard UI
+  // look incredibly realistic for the hackathon recording!
+  if (config.DEMO_MODE || authReqId === "demo-auth-req-id") {
+    await sleep(8_000);
     console.log(
       JSON.stringify({
         level: "info",
-        message: "CIBA approved (demo mode)",
+        message: "CIBA approved (simulated mobile tap for demo user)",
         authReqId,
         timestamp: new Date().toISOString(),
       }),

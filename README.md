@@ -319,9 +319,11 @@ The deterministic classifier (`src/regulatory/dora-classifier.ts`) checks ALL se
 
 ---
 
-## Bonus Blog Post: Token Vault — The Identity Layer AI Agents Were Always Missing
+## Bonus Blog Post
 
-> *Posted as part of the "Authorized to Act" hackathon submission. 500+ words.*
+### Token Vault — The Identity Layer AI Agents Were Always Missing
+
+> *~250 words · Manoj Mallick · "Authorized to Act" Hackathon*
 
 **The credential problem no one talks about in AI agent demos**
 
