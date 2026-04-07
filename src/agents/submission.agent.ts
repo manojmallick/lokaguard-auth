@@ -28,6 +28,7 @@ export class SubmissionAgent extends BaseAgent {
     try {
       // 1. OpenFGA check — CISO or CRO only
       this.emitStatus("checking_permissions", reportId);
+      this.log("🔒 OpenFGA → checking can_submit permission", { userId, object: `regulatory_report:${reportId}` });
       const allowed = await checkPermission(
         userId,
         "can_submit",
@@ -39,6 +40,8 @@ export class SubmissionAgent extends BaseAgent {
           `User ${userId} cannot submit report ${reportId} — requires CISO or CRO role`,
         );
       }
+
+      this.log("✅ OpenFGA → can_submit: GRANTED", { userId, reportId });
 
       // 2. Notify dashboard — "awaiting CISO approval"
       this.emitStatus("awaiting_ciso_approval", reportId);
@@ -59,7 +62,9 @@ export class SubmissionAgent extends BaseAgent {
       this.log("CISO approved — fetching DNB token from Token Vault");
 
       // 6. Fetch DNB token from Token Vault
+      this.log("🔑 Token Vault → requesting dnb-api token", { userId, connection: "dnb-api" });
       const dnbToken = await getTokenVaultToken(userId, "dnb-api");
+      this.log("✅ Token Vault → dnb-api token obtained", { connection: "dnb-api" });
 
       // 7. Submit to DNB
       this.emitStatus("submitting_to_dnb", reportId);

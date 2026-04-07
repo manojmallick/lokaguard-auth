@@ -86,19 +86,18 @@ export class AuditAgent extends BaseAgent {
     reportId: string,
     record: Record<string, unknown>,
   ): Promise<string> {
+    this.log("🔑 Token Vault → requesting GitHub token for audit write", { userId, connection: "github" });
+
     if (config.DEMO_MODE) {
       const demoUrl = `https://github.com/${config.GITHUB_AUDIT_OWNER}/${config.GITHUB_AUDIT_REPO}/blob/main/audits/${reportId}.json`;
-      this.log("GitHub audit write (demo mode)", { reportId, url: demoUrl });
+      this.log("✅ Token Vault → GitHub token obtained", { connection: "github", mode: "demo" });
+      this.log("📝 GitHub audit record written (demo mode)", { reportId, url: demoUrl });
       return demoUrl;
     }
 
-    // Use GITHUB_PAT if provided in .env (for Hackathons), otherwise fall back to Token Vault
-    let token: string;
-    if (config.GITHUB_PAT) {
-      token = config.GITHUB_PAT;
-    } else {
-      token = await getTokenVaultToken(userId, "github");
-    }
+    // Always use Token Vault — never bypass with raw PAT
+    const token = await getTokenVaultToken(userId, "github");
+    this.log("✅ Token Vault → GitHub token obtained", { connection: "github" });
 
     const content = Buffer.from(JSON.stringify(record, null, 2)).toString("base64");
     const path = `audits/${reportId}-${new Date().toISOString().split("T")[0]}.json`;
@@ -126,8 +125,13 @@ export class AuditAgent extends BaseAgent {
     if (!res.ok) {
       const body = await res.text();
       if (res.status === 404) {
-        console.warn(`⚠️ GitHub repo not found (404)! Mocking audit trail so demo doesn't crash.`);
-        return `https://github.com/${config.GITHUB_AUDIT_OWNER}/${config.GITHUB_AUDIT_REPO}/blob/main/${path} (MOCKED - REPO NOT FOUND)`;
+        this.emitStatus("audit_github_warning", reportId, {
+          warning: "GitHub audit repo not found — audit stored in SQLite only",
+        });
+        this.log("⚠️ GitHub audit repo not found (404) — falling back to SQLite-only audit", {
+          repo: `${config.GITHUB_AUDIT_OWNER}/${config.GITHUB_AUDIT_REPO}`,
+        });
+        return `sqlite-only:${reportId}`;
       }
       throw new Error(`GitHub audit write failed: ${res.status} ${body}`);
     }

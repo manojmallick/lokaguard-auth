@@ -48,7 +48,10 @@ export class RegDataAgent extends BaseAgent {
   }
 
   private async fetchJiraIssue(userId: string, issueKey: string): Promise<JiraIssue> {
+    this.log("🔑 Token Vault → requesting Jira token", { userId, connection: "jira" });
+
     if (config.DEMO_MODE) {
+      this.log("✅ Token Vault → Jira token obtained", { connection: "jira", mode: "demo" });
       return {
         key: issueKey,
         summary: "Payment processing service unavailable — EU customers affected",
@@ -65,6 +68,7 @@ export class RegDataAgent extends BaseAgent {
     }
 
     const token = await getTokenVaultToken(userId, "jira");
+    this.log("✅ Token Vault → Jira token obtained", { connection: "jira" });
     this.log("Fetching Jira issue", { issueKey });
 
     const res = await fetch(
@@ -100,7 +104,10 @@ export class RegDataAgent extends BaseAgent {
   }
 
   private async fetchGitHubAlerts(userId: string): Promise<GitHubAlert[]> {
+    this.log("🔑 Token Vault → requesting GitHub token", { userId, connection: "github" });
+
     if (config.DEMO_MODE) {
+      this.log("✅ Token Vault → GitHub token obtained", { connection: "github", mode: "demo" });
       return [
         {
           id: 1,
@@ -114,6 +121,7 @@ export class RegDataAgent extends BaseAgent {
     }
 
     const token = await getTokenVaultToken(userId, "github");
+    this.log("✅ Token Vault → GitHub token obtained", { connection: "github" });
     const res = await fetch(
       `https://api.github.com/repos/${config.GITHUB_AUDIT_OWNER}/${config.GITHUB_AUDIT_REPO}/code-scanning/alerts?state=open`,
       { headers: { Authorization: `Bearer ${token}`, "Accept": "application/vnd.github+json" } },
@@ -141,7 +149,10 @@ export class RegDataAgent extends BaseAgent {
   }
 
   private async fetchSlackMessages(userId: string): Promise<SlackMessage[]> {
+    this.log("🔑 Token Vault → requesting Slack token", { userId, connection: "slack" });
+
     if (config.DEMO_MODE) {
+      this.log("✅ Token Vault → Slack token obtained", { connection: "slack", mode: "demo" });
       return [
         {
           ts: String(Date.now() / 1000 - 3600),
@@ -159,6 +170,7 @@ export class RegDataAgent extends BaseAgent {
     }
 
     const token = await getTokenVaultToken(userId, "slack");
+    this.log("✅ Token Vault → Slack token obtained", { connection: "slack" });
     const res = await fetch(
       "https://slack.com/api/conversations.history?channel=C_INCIDENTS&limit=20",
       { headers: { Authorization: `Bearer ${token}` } },

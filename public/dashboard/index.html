@@ -948,22 +948,29 @@
   const STAGES = ['regDataAgent', 'classifyAgent', 'draftAgent', 'submissionAgent', 'auditAgent'];
 
   const STAGE_LABELS = {
-    'fetching_incident_data': 'Fetching from Jira, GitHub, Slack…',
-    'incident_data_collected': 'Incident data collected ✓',
-    'classifying_incident': 'Running EBA RTS classification…',
+    // RegDataAgent
+    'fetching_incident_data': '🔑 Token Vault → fetching Jira, GitHub, Slack tokens…',
+    'incident_data_collected': 'Incident data collected via Token Vault ✓',
+    // ClassifyAgent
+    'classifying_incident': 'Running EBA RTS 7 classification…',
     'classification_complete': (e) => `Classified as ${e.meta?.severity?.toUpperCase() ?? 'MAJOR'} ✓`,
+    // DraftAgent
     'generating_dora_draft': 'Generating DORA Art. 19 notification…',
     'dora_draft_ready': 'Draft DORA notification ready ✓',
-    'checking_permissions': 'Checking OpenFGA permissions…',
-    'awaiting_ciso_approval': 'CIBA initiated — awaiting CISO approval…',
-    'ciso_approved': 'CISO approved ✓',
-    'submitting_to_dnb': 'Submitting to DNB API…',
-    'submission_complete': (e) => `Submitted ✓ Ref: ${e.meta?.dnbReferenceId ?? ''}`,
-    'writing_audit_trail': 'Writing immutable audit trail…',
+    // SubmissionAgent
+    'checking_permissions': '🔒 OpenFGA → checking can_submit permission…',
+    'awaiting_ciso_approval': '📱 CIBA initiated — awaiting CISO mobile approval…',
+    'ciso_approved': '✅ CISO approved via Auth0 Guardian',
+    'submitting_to_dnb': '🔑 Token Vault → dnb-api token fetched — submitting…',
+    'submission_complete': (e) => `✅ Submitted to DNB — Ref: ${e.meta?.dnbReferenceId ?? ''}`,
+    // AuditAgent
+    'writing_audit_trail': '🔑 Token Vault → requesting GitHub token for audit…',
     'audit_complete': 'Audit trail written to GitHub + SQLite ✓',
-    'permission_denied': '❌ Permission denied by OpenFGA',
-    'ciso_denied': '❌ CISO denied the submission',
-    'ciso_timeout': '⏱ CISO timeout — submission aborted',
+    'audit_github_warning': '⚠️ GitHub repo not found — audit stored in SQLite only',
+    // Error states
+    'permission_denied': '❌ OpenFGA denied — requires CISO or CRO role',
+    'ciso_denied': '❌ CISO denied the submission on mobile',
+    'ciso_timeout': '⏱ CISO timeout (5 min) — submission aborted',
   };
 
   function connectWS() {
