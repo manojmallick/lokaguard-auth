@@ -33,7 +33,7 @@ RUN npm ci --omit=dev && \
 COPY --from=builder /app/dist ./dist
 COPY public/ ./public/
 COPY fga/ ./fga/
-COPY .env ./.env
+# .env is NOT copied — credentials come from Cloud Run environment variables
 
 # Cloud Run always listens on 8080
 ENV PORT=8080
