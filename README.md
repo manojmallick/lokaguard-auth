@@ -325,45 +325,25 @@ The deterministic classifier (`src/regulatory/dora-classifier.ts`) checks ALL se
 
 > *~250 words · Manoj Mallick · "Authorized to Act" Hackathon*
 
-**The credential problem no one talks about in AI agent demos**
+I've spent 15 years building software inside ING and ABN AMRO. I know what credential mismanagement looks like in production: API keys rotated in panic, shared service accounts with God-mode access, post-mortems that read "root cause: hardcoded token in CI pipeline." When I built **GradientGuard** (2nd place, DigitalOcean Gradient AI Hackathon), I automated DORA incident *detection*. But the harder problem remained: *secure submission to the regulator*.
 
-I've built software inside two of the Netherlands' largest banks — ING and ABN AMRO. I've seen what credential mismanagement looks like at scale: API keys rotated in panic after a leak, shared service accounts with God-mode access, incident post-mortems that read "root cause: hardcoded token in CI pipeline."
+That's LokaGuard Auth — and the biggest technical discovery was how perfectly **Auth0 Token Vault** maps to multi-agent principle of least privilege.
 
-When I built GradientGuard (2nd place, DigitalOcean Gradient AI Hackathon), I focused on the *detection* side of DORA compliance — monitoring infrastructure, classifying incidents, generating audit evidence. We won. But the deeper problem nagged at me: what happens after you detect the incident? Someone has to submit it to the regulator, and that someone has to be authorized, accountable, and auditable.
+**The technical hurdle: agents that share nothing**
 
-That's LokaGuard Auth. And building it revealed why **Token Vault is the identity layer AI agents have always needed but never had**.
+My first instinct was standard: load all credentials at startup, inject them into agents via context. It works until it doesn't — one compromised agent exposes every downstream service.
 
-**Why Token Vault changes everything**
+Token Vault forced a different architecture. Each agent fetches *only* the token it needs, *exactly* when it needs it. `RegDataAgent` requests Jira, GitHub and Slack tokens in parallel — it has no knowledge of the DNB API credential. `SubmissionAgent` cannot even *request* the DNB token until `OpenFGA` confirms `can_submit` and the CISO taps Approve via **CIBA** on their phone. Auth0 becomes the policy enforcement point; the agents become stateless workers that *earn* access rather than inherit it.
 
-Every AI agent tutorial shows you how to call an API. Almost none of them show you what happens to the credentials.
+The visible proof is in the dashboard log panel — judges can watch every Token Vault call happen in real-time: `🔑 requesting → ✅ obtained`, five separate connections, five separate tokens, none persisted beyond the pipeline run.
 
-My instinct, like every developer's, was: put the API keys in `.env`, load them at startup, inject them into the agents that need them. It works. It's fast. And for a system that talks to Jira, GitHub, Slack, a Dutch central bank API, and OpenFGA — it's a ticking time bomb.
+**The achievement that surprised me**
 
-Token Vault flips the model. Instead of loading credentials at startup and passing them down a call stack, each agent requests exactly the token it needs, exactly when it needs it, from Auth0. The token is scoped to one connection. It's fetched fresh every pipeline run — no caching, no sharing, no persistence. After the agent finishes, there is nothing to leak.
+The CIBA binding message includes the report ID. The CISO approves *a specific document*, not a generic authorization. Token Vault only releases the DNB credential after that approval. There is no code path — however buggy or exploited — that bypasses this. For DORA compliance, that is the difference between "our agent filed it" and "our CISO approved LG-2026-009 at 09:47 UTC, here is the immutable GitHub commit."
 
-What surprised me most was how well this maps to the principle of least privilege at the *agent* level. RegDataAgent gets a Jira read token and a Slack read token. It cannot touch the DNB submission API. SubmissionAgent gets the DNB token only *after* CISO approval via CIBA — not before, not in parallel, not cached from a previous run. Auth0 becomes the policy enforcement point. The agents become stateless workers that earn their access rather than assume it.
+That guarantee cost me zero extra code. It came from using Auth0 correctly.
 
-**CIBA as a regulatory control**
-
-DORA isn't just a compliance checkbox. Article 19 exists because regulators want a human to own each submission. CIBA lets me build that guarantee into the architecture itself.
-
-SubmissionAgent cannot proceed until a push notification lands on the CISO's phone and they tap Approve. The binding message includes the report ID — the CISO is approving a specific document, not a blank authorization. Token Vault only releases the DNB API credential after that approval. There is no code path — however buggy, however exploited — that bypasses this.
-
-For compliance teams, this is the difference between "our agent submitted the report" and "our CISO approved this specific report at 09:47 UTC and here is the immutable GitHub commit that proves it."
-
-**The ROI case**
-
-GradientGuard's judge presentation used real numbers from my time in Dutch banking: €120,000/year in compliance labor for a 100-person organization, 4–8 hours per incident for manual evidence and submission. GradientGuard cut evidence generation to under 2 minutes. LokaGuard Auth cuts the submission pipeline to under 3 minutes, while making it *more* secure and *more* auditable than any manual process.
-
-The combined saving: €117,840/year. The 4-hour DORA window, which currently causes genuine operational panic inside EU banks, becomes comfortable.
-
-**What this means for teams building regulated AI agents**
-
-The question isn't whether you need this kind of identity infrastructure. It's whether you'll build it yourself — badly, incrementally, after something goes wrong — or let Auth0 handle it from day one.
-
-After two hackathons in the same domain and 15 years inside the institutions this regulation targets: the answer is obvious.
-
-*LokaGuard Auth is open source. The CIBA implementation is in `src/auth/ciba.ts`. The Token Vault client is in `src/auth/token-vault.ts`. The OpenFGA model is in `fga/model.fga`. Start there.*
+*Token Vault client: `src/auth/token-vault.ts` · CIBA: `src/auth/ciba.ts` · OpenFGA model: `fga/model.fga`*
 
 ---
 
