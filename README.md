@@ -83,16 +83,16 @@ ICT Incident → LokaRouter (DAG) → RegDataAgent → ClassifyAgent → DraftAg
 
 ## Architecture
 
-### 7-Stage Agent Pipeline
+### 5-Agent Pipeline (orchestrated by LokaRouter DAG)
 
 | Stage | Agent | Auth0 Component | What it does |
 |---|---|---|---|
-| 1 | **LokaRouter** | — | Topological DAG sort, schedules agent execution order |
-| 2 | **RegDataAgent** | Token Vault (Jira, GitHub, Slack) | Fetches incident context from all 3 sources in parallel |
-| 3 | **ClassifyAgent** | — | Checks all 7 EBA RTS DORA severity criteria (local Qwen 2.5) |
-| 4 | **DraftAgent** | — | Generates DORA Article 19 initial notification (local Qwen 2.5) |
-| 5 | **SubmissionAgent** | OpenFGA + CIBA + Token Vault (DNB) | Role check → CISO mobile approval → DNB submission |
-| 6 | **AuditAgent** | Token Vault (GitHub) | Immutable audit commit to GitHub + SQLite write |
+| 0 | **LokaRouter** | — | Topological sort (Kahn's algorithm), parallel execution where possible |
+| 1 | **RegDataAgent** | 🔑 Token Vault: Jira, GitHub, Slack | Fetches incident context from all 3 sources in parallel |
+| 2 | **ClassifyAgent** | — | Checks all 7 EBA RTS DORA severity criteria (local Qwen 2.5) |
+| 3 | **DraftAgent** | — | Generates DORA Article 19 initial notification (local Qwen 2.5) |
+| 4 | **SubmissionAgent** | 🔒 OpenFGA + 📱 CIBA + 🔑 Token Vault: DNB | Role check → CISO mobile approval → DNB API token → submit |
+| 5 | **AuditAgent** | 🔑 Token Vault: GitHub | Immutable audit commit to GitHub + SQLite write |
 
 ### Auth0 Components — Why Each One Matters
 
@@ -111,16 +111,33 @@ RegDataAgent and DraftAgent use **Ollama + Qwen 2.5** running locally. Incident 
 
 ## Quick Start
 
-### Option A — Demo mode (no credentials needed, 60 seconds)
+### Option A — Zero install (live Cloud Run, try right now)
 
 ```bash
-git clone <repo-url> lokaguard-auth && cd lokaguard-auth
+# Trigger the pipeline — no setup required
+curl -X POST https://lokaguard-auth-908307939543.europe-west1.run.app/api/incidents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer demo-token" \
+  -d '{"jiraIssueKey":"INC-1234","userId":"auth0|demo-ciso"}'
+
+# Then open the dashboard to watch it execute live:
+# https://lokaguard-auth-908307939543.europe-west1.run.app/dashboard/
+```
+
+Health check: `GET https://lokaguard-auth-908307939543.europe-west1.run.app/health`
+
+---
+
+### Option B — Local demo (no credentials needed, ~60 seconds)
+
+```bash
+git clone https://github.com/manojmallick/lokaguard-auth && cd lokaguard-auth
 npm install
 cp .env.example .env          # DEMO_MODE=true is already set
 npm run dev
 ```
 
-Open `http://localhost:3000/dashboard` and trigger an incident:
+Open `http://localhost:3000/dashboard` — then trigger an incident:
 
 ```bash
 curl -X POST http://localhost:3000/api/incidents \
@@ -129,24 +146,54 @@ curl -X POST http://localhost:3000/api/incidents \
   -d '{"jiraIssueKey":"INC-1234","userId":"auth0|demo-ciso"}'
 ```
 
-Or click **"Run Full Demo"** on the dashboard. Watch the 6-agent pipeline execute in real-time.
+Or click **"▶ Run Full Demo (Auto)"** on the dashboard. Watch the **5-agent pipeline** execute live with every Auth0 call visible in the log panel:
 
-### Option B — Full Docker stack
+```
+🔑 Token Vault → requesting Jira token
+✅ Token Vault → Jira token obtained
+🔑 Token Vault → requesting GitHub token
+✅ Token Vault → GitHub token obtained
+🔑 Token Vault → requesting Slack token
+✅ Token Vault → Slack token obtained
+🔒 OpenFGA → checking can_submit permission
+✅ OpenFGA → can_submit: GRANTED
+📱 CIBA initiated — awaiting CISO mobile approval…
+✅ CISO approved via Auth0 Guardian
+🔑 Token Vault → requesting dnb-api token
+✅ Token Vault → dnb-api token obtained
+🔑 Token Vault → requesting GitHub token for audit write
+✅ Token Vault → GitHub token obtained
+```
+
+```bash
+# Other commands
+npm test              # Vitest (5 suites, 23+ cases — all Auth0 calls mocked)
+npm run build         # TypeScript strict compile — zero errors
+GET http://localhost:3000/health
+```
+
+---
+
+### Option C — Full Docker stack
 
 ```bash
 docker-compose up
-# Starts: app + Ollama (qwen2.5:7b) + mock DNB API + OpenFGA
+# Starts: app (port 3000) + Ollama (qwen2.5:7b) + mock DNB API + OpenFGA
 ```
 
-### Option C — Production Auth0 credentials
+---
+
+### Option D — Production Auth0 credentials
 
 ```bash
 cp .env.example .env
-# Fill in AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CIBA_CLIENT_ID,
-# OPENFGA_STORE_ID, OPENFGA_AUTHORIZATION_MODEL_ID
+# Fill in: AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CIBA_CLIENT_ID,
+#          OPENFGA_STORE_ID, OPENFGA_AUTHORIZATION_MODEL_ID
 # Set DEMO_MODE=false
 npm run dev
 ```
+
+See [`DEPLOY.md`](./DEPLOY.md) for full Auth0 Dashboard setup instructions (Token Vault connections, CIBA app config, OpenFGA model write).
 
 ---
 
@@ -200,7 +247,7 @@ npm run build           # TypeScript strict compile — zero errors
 
 ```
 src/
-├── agents/           → 6 agents + LokaRouter DAG orchestrator
+├── agents/           → 5 agents + LokaRouter DAG orchestrator
 ├── auth/             → Token Vault, CIBA, OpenFGA, Management API
 ├── llm/              → Ollama/Qwen 2.5 client + DORA regulatory prompts
 ├── regulatory/       → EBA RTS severity classifier, DORA report builder, DNB client
@@ -263,8 +310,8 @@ The deterministic classifier (`src/regulatory/dora-classifier.ts`) checks ALL se
 | Time | Screen | Narration |
 |---|---|---|
 | 0:00–0:20 | Slide: DORA + ROI numbers | "EU banks have 4 hours to report ICT incidents. Manual processes take 3–8 hours and cost €120k per year. GradientGuard proved the detection problem. LokaGuard Auth solves the submission problem." |
-| 0:20–0:45 | Dashboard + Jira trigger | "A payment outage is detected. LokaGuard starts the pipeline. Token Vault provides the Jira token — no credential is stored anywhere." |
-| 0:45–1:15 | WebSocket pipeline running | "RegDataAgent fetches Jira, GitHub, and Slack in parallel. ClassifyAgent runs entirely on-device with Qwen — incident data never leaves the network." |
+| 0:20–0:45 | Dashboard + Jira trigger | "A payment outage is detected. LokaGuard starts the 5-agent pipeline. Watch the log panel — Token Vault fetching Jira, GitHub and Slack tokens in real-time." |
+| 0:45–1:15 | WebSocket log panel live | "Every Token Vault call is visible: 🔑 requesting, ✅ obtained. RegDataAgent fetches 3 sources in parallel. ClassifyAgent runs on-device — incident data never leaves the network." |
 | 1:15–1:45 | Mobile phone notification | "SubmissionAgent checks OpenFGA: this user is CISO. CIBA triggers a push notification to their Auth0 Guardian app." |
 | 1:45–2:00 | CISO approves on phone | "CISO taps Approve. Auth0 releases the DNB API token from Token Vault — only at this moment, only for this operation." |
 | 2:00–2:30 | DNB submission + GitHub commit | "Report submitted. Audit trail committed to GitHub — immutable, timestamped, agent-signed. Regulatory deadline met." |
