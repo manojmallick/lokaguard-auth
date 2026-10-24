@@ -199,7 +199,7 @@ See [`DEPLOY.md`](./DEPLOY.md) for full Auth0 Dashboard setup instructions (Toke
 
 ## Configuration
 
-Key variables (full list in `.env.example`):
+Every variable in `.env.example`:
 
 | Variable | Purpose |
 |---|---|
@@ -211,6 +211,19 @@ Key variables (full list in `.env.example`):
 | `OPENFGA_STORE_ID` | OpenFGA store containing your authorization model |
 | `OLLAMA_MODEL` | `qwen2.5:7b` (dev) or `qwen2.5:14b` (demo) |
 | `DNB_API_BASE_URL` | `http://localhost:8080/v1` (mock) or real DNB endpoint |
+| `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET` | Credentials of the main Auth0 application |
+| `AUTH0_AUDIENCE` | API audience, normally `https://<tenant>/api/v2/` |
+| `AUTH0_CIBA_CLIENT_SECRET` | Secret of the CIBA-enabled application |
+| `CIBA_BINDING_MESSAGE_PREFIX` | Text shown on the CISO's phone during approval; the report ID is appended at runtime |
+| `OPENFGA_API_URL` | OpenFGA endpoint, e.g. `https://api.us1.fga.dev` |
+| `OPENFGA_AUTHORIZATION_MODEL_ID`, `OPENFGA_API_TOKEN` | Authorization model ID and API token for the store |
+| `OLLAMA_BASE_URL` | Local Ollama server, default `http://localhost:11434` |
+| `DATABASE_PATH` | SQLite file, default `./data/lokaguard.db` |
+| `DNB_ORG_LEI` | LEI of the reporting organisation (the example value is a placeholder) |
+| `GITHUB_AUDIT_OWNER`, `GITHUB_AUDIT_REPO` | Repository that receives the audit trail |
+| `GITHUB_PAT` | Optional shortcut: if set, the audit agent writes to GitHub with this token instead of Token Vault. Leave empty in production |
+| `PORT` | HTTP port, default `3000` |
+| `NODE_ENV`, `LOG_LEVEL` | `development` or `production`; log verbosity (`info`) |
 
 ---
 
